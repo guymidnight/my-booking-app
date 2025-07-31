@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจองคิวรับเอกสารแรงงานต่างด้าว</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+        }
+        .step-active {
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+        .step-inactive {
+            border-color: #d1d5db;
+            color: #6b7280;
+        }
+        .date-available {
+            background-color: #ffffff;
+            color: #1f2937;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .date-available:hover {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+        }
+        .date-selected {
+            background-color: #3b82f6;
+            color: #ffffff;
+            border-color: #3b82f6;
+        }
+        .date-disabled {
+            background-color: #f3f4f6;
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .slot-available {
+            background-color: #ffffff;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .slot-available:hover {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+        }
+        .slot-selected {
+            background-color: #3b82f6;
+            color: #ffffff;
+            border-color: #3b82f6;
+        }
+        .slot-full {
+            background-color: #f3f4f6;
+            color: #9ca3af;
+            cursor: not-allowed;
+            text-decoration: line-through;
+        }
+        /* Loading Spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">ระบบจองคิวรับเอกสาร</h1>
+            <p class="text-gray-600 mt-2">สำหรับนัดหมายเข้ารับเอกสารแรงงานต่างด้าวที่ดำเนินการเสร็จสิ้นแล้ว</p>
+        </header>
+
+        <main id="app" class="bg-white p-6 md:p-8 rounded-2xl shadow-lg min-h-[500px]">
+
+            <!-- Step Indicators -->
+            <div id="step-indicator-container" class="flex justify-between items-center mb-8 text-sm md:text-base">
+                <div id="step-1-indicator" class="step-active flex-1 text-center border-b-4 pb-2">
+                    <span class="font-bold">1. ตรวจสอบข้อมูล</span>
+                </div>
+                <div id="step-2-indicator" class="step-inactive flex-1 text-center border-b-4 pb-2">
+                    <span class="font-bold">2. เลือกวัน-เวลา</span>
+                </div>
+                <div id="step-3-indicator" class="step-inactive flex-1 text-center border-b-4 pb-2">
+                    <span class="font-bold">3. ยืนยันการจอง</span>
+                </div>
+            </div>
+
+            <!-- Section 1: Case Verification -->
+            <section id="verification-section">
+                <h2 class="text-xl font-bold text-gray-700 mb-4">ขั้นตอนที่ 1: กรุณากรอกเลขเคสเพื่อตรวจสอบสถานะ</h2>
+                <p class="text-gray-500 mb-4">ตัวอย่างเลขเคสทดสอบ: <span class="font-mono text-blue-600">CASE123</span>, <span class="font-mono text-blue-600">CASE456</span>, <span class="font-mono text-red-600">CASE789</span> (เอกสารยังไม่พร้อม)</p>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input type="text" id="case-number-input" placeholder="กรอกเลขเคสที่นี่..." class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    <button id="check-case-btn" class="bg-blue-600 text-white font-bold p-3 rounded-lg hover:bg-blue-700 transition duration-200">ตรวจสอบสถานะ</button>
+                </div>
+                <div id="verification-error" class="text-red-600 mt-2 hidden"></div>
+            </section>
+
+            <!-- Section 2: Booking -->
+            <section id="booking-section" class="hidden">
+                <div id="document-info" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 class="font-bold text-lg text-blue-800">ข้อมูลเอกสารที่พร้อมรับ</h3>
+                    <p class="text-blue-700"><strong>เลขเคส:</strong> <span id="info-case-number"></span></p>
+                    <p class="text-blue-700"><strong>ชื่อแรงงาน:</strong> <span id="info-worker-name"></span></p>
+                    <p class="text-blue-700"><strong>สถานะ:</strong> <span id="info-status" class="font-bold"></span></p>
+                </div>
+
+                <h2 class="text-xl font-bold text-gray-700 mb-4">ขั้นตอนที่ 2: เลือกวันและเวลาที่สะดวกเข้ารับ</h2>
+                
+                <div class="mb-6">
+                    <h3 class="font-semibold text-gray-600 mb-3">เลือกวัน</h3>
+                    <div id="calendar-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2"></div>
+                </div>
+
+                <div id="time-slots-container" class="hidden">
+                    <h3 class="font-semibold text-gray-600 mb-3">เลือกเวลา (สำหรับวันที่ <span id="selected-date-display"></span>)</h3>
+                    <div id="time-slots-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"></div>
+                </div>
+                 <div id="time-slots-error" class="text-red-600 mt-4 hidden">กรุณาเลือกวันและเวลาก่อนดำเนินการต่อ</div>
+
+                <div class="mt-8 flex justify-end">
+                    <button id="next-to-confirm-btn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-200">ถัดไป</button>
+                </div>
+            </section>
+
+            <!-- Section 3: Confirmation -->
+            <section id="confirmation-section" class="hidden">
+                <h2 class="text-xl font-bold text-gray-700 mb-4">ขั้นตอนที่ 3: ตรวจสอบและยืนยันการจอง</h2>
+                <div class="p-6 border border-gray-200 rounded-lg space-y-3">
+                    <h3 class="text-lg font-semibold text-gray-800">สรุปข้อมูลการนัดหมาย</h3>
+                    <p><strong>เลขเคส:</strong> <span id="confirm-case-number" class="font-mono"></span></p>
+                    <p><strong>ชื่อแรงงาน:</strong> <span id="confirm-worker-name"></span></p>
+                    <p><strong>วันที่นัดหมาย:</strong> <span id="confirm-date" class="font-bold text-blue-600"></span></p>
+                    <p><strong>เวลานัดหมาย:</strong> <span id="confirm-time" class="font-bold text-blue-600"></span></p>
+                </div>
+                
+                <!-- Gemini Feature 1: Checklist -->
+                <div class="mt-6">
+                    <button id="generate-checklist-btn" class="w-full flex items-center justify-center gap-2 bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition duration-200">
+                        ✨ สรุปขั้นตอนและเอกสารที่ต้องเตรียม
+                        <div id="checklist-loader" class="loader hidden"></div>
+                    </button>
+                    <div id="checklist-result" class="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg hidden whitespace-pre-wrap"></div>
+                </div>
+
+                <div class="mt-8 flex justify-between items-center">
+                    <button id="back-to-booking-btn" class="text-gray-600 font-bold py-3 px-6 rounded-lg hover:bg-gray-100 transition duration-200">ย้อนกลับ</button>
+                    <button id="confirm-booking-btn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-200">ยืนยันการจอง</button>
+                </div>
+            </section>
+
+            <!-- Section 4: Success -->
+            <section id="success-section" class="hidden text-center">
+                <div class="flex justify-center mb-4">
+                    <svg class="w-20 h-20 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">จองคิวสำเร็จ!</h2>
+                <p class="text-gray-600 mb-6">เราได้บันทึกการนัดหมายของท่านเรียบร้อยแล้ว</p>
+                <div class="bg-gray-50 p-4 rounded-lg inline-block border border-gray-200">
+                    <p><strong>รหัสการจอง:</strong> <span id="booking-ref" class="font-mono text-lg text-blue-600"></span></p>
+                    <p><strong>วันที่:</strong> <span id="success-date"></span></p>
+                    <p><strong>เวลา:</strong> <span id="success-time"></span></p>
+                </div>
+                
+                <!-- Gemini Feature 2: Email Draft -->
+                <div class="mt-6">
+                    <button id="generate-email-btn" class="flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition duration-200 mx-auto">
+                        ✨ ร่างอีเมลเพื่อแจ้งเตือนแรงงาน
+                        <div id="email-loader" class="loader hidden"></div>
+                    </button>
+                    <div id="email-result-container" class="mt-4 text-left hidden">
+                        <textarea id="email-result" rows="10" class="w-full p-3 border border-gray-300 rounded-lg bg-indigo-50"></textarea>
+                        <button id="copy-email-btn" class="mt-2 bg-gray-600 text-white text-sm font-bold py-2 px-4 rounded-lg hover:bg-gray-700">คัดลอกข้อความ</button>
+                    </div>
+                </div>
+
+                 <div class="mt-8">
+                    <button onclick="window.location.reload()" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-200">จองคิวใหม่</button>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        // --- ส่วนของการตั้งค่าและข้อมูลจำลอง ---
+        const mockCases = {
+            "CASE123": { workerName: "Mr. Aung Win", status: "พร้อมรับเอกสาร" },
+            "CASE456": { workerName: "Ms. Sao Thida", status: "พร้อมรับเอกสาร" },
+            "CASE789": { workerName: "Mr. Bounmy", status: "เอกสารยังไม่พร้อมรับ" }
+        };
+        const timeSlotsData = [
+            { time: "09:00 - 09:30", available: true }, { time: "09:30 - 10:00", available: true },
+            { time: "10:00 - 10:30", available: false }, { time: "10:30 - 11:00", available: true },
+            { time: "11:00 - 11:30", available: true }, { time: "11:30 - 12:00", available: false },
+            { time: "13:30 - 14:00", available: true }, { time: "14:00 - 14:30", available: true },
+            { time: "14:30 - 15:00", available: true },
+        ];
+
+        // --- ตัวแปรสำหรับเก็บสถานะของแอปพลิเคชัน ---
+        let selectedCase = null;
+        let selectedDate = null;
+        let selectedTime = null;
+
+        // --- DOM Elements ---
+        const verificationSection = document.getElementById('verification-section');
+        const bookingSection = document.getElementById('booking-section');
+        const confirmationSection = document.getElementById('confirmation-section');
+        const successSection = document.getElementById('success-section');
+        const stepIndicatorContainer = document.getElementById('step-indicator-container');
+        const step1Indicator = document.getElementById('step-1-indicator');
+        const step2Indicator = document.getElementById('step-2-indicator');
+        const step3Indicator = document.getElementById('step-3-indicator');
+
+        // --- Gemini API Function ---
+        async function callGeminiAPI(prompt, loaderElement, resultElement) {
+            loaderElement.classList.remove('hidden');
+            resultElement.classList.add('hidden');
+
+            const apiKey = ""; // API Key will be injected by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    if(resultElement.tagName === 'TEXTAREA') {
+                        resultElement.value = text;
+                    } else {
+                        resultElement.innerText = text;
+                    }
+                    resultElement.classList.remove('hidden');
+                } else {
+                    throw new Error("Invalid response structure from API.");
+                }
+
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                resultElement.innerText = "เกิดข้อผิดพลาดในการเรียกใช้ AI กรุณาลองใหม่อีกครั้ง";
+                resultElement.classList.remove('hidden');
+            } finally {
+                loaderElement.classList.add('hidden');
+            }
+        }
+
+        function updateStepIndicator(step) {
+            step1Indicator.className = 'step-inactive flex-1 text-center border-b-4 pb-2';
+            step2Indicator.className = 'step-inactive flex-1 text-center border-b-4 pb-2';
+            step3Indicator.className = 'step-inactive flex-1 text-center border-b-4 pb-2';
+
+            if (step >= 1) step1Indicator.className = 'step-active flex-1 text-center border-b-4 pb-2';
+            if (step >= 2) step2Indicator.className = 'step-active flex-1 text-center border-b-4 pb-2';
+            if (step >= 3) step3Indicator.className = 'step-active flex-1 text-center border-b-4 pb-2';
+        }
+
+        document.getElementById('check-case-btn').addEventListener('click', () => {
+            const caseInput = document.getElementById('case-number-input').value.toUpperCase();
+            const errorDiv = document.getElementById('verification-error');
+            const caseData = mockCases[caseInput];
+
+            if (caseData) {
+                if (caseData.status === "พร้อมรับเอกสาร") {
+                    selectedCase = { id: caseInput, ...caseData };
+                    document.getElementById('info-case-number').textContent = selectedCase.id;
+                    document.getElementById('info-worker-name').textContent = selectedCase.workerName;
+                    document.getElementById('info-status').textContent = selectedCase.status;
+                    verificationSection.classList.add('hidden');
+                    bookingSection.classList.remove('hidden');
+                    updateStepIndicator(2);
+                    errorDiv.classList.add('hidden');
+                } else {
+                    errorDiv.textContent = `สถานะเคส ${caseInput}: ${caseData.status} กรุณาติดต่อเจ้าหน้าที่`;
+                    errorDiv.classList.remove('hidden');
+                }
+            } else {
+                errorDiv.textContent = 'ไม่พบเลขเคสนี้ในระบบ กรุณาตรวจสอบอีกครั้ง';
+                errorDiv.classList.remove('hidden');
+            }
+        });
+
+        function generateCalendar() {
+            const calendarGrid = document.getElementById('calendar-grid');
+            calendarGrid.innerHTML = '';
+            const today = new Date();
+            for (let i = 0; i < 14; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+                const day = date.getDay();
+                const isWeekend = (day === 0 || day === 6);
+                const dateEl = document.createElement('div');
+                dateEl.className = `p-3 border rounded-lg text-center ${isWeekend ? 'date-disabled' : 'date-available'}`;
+                dateEl.innerHTML = `<div class="font-bold text-lg">${date.toLocaleDateString('th-TH', { day: 'numeric' })}</div><div class="text-sm">${date.toLocaleDateString('th-TH', { month: 'short' })}</div><div class="text-xs">${date.toLocaleDateString('th-TH', { weekday: 'short' })}</div>`;
+                if (!isWeekend) {
+                    dateEl.dataset.date = date.toISOString().split('T')[0];
+                    dateEl.addEventListener('click', handleDateSelect);
+                }
+                calendarGrid.appendChild(dateEl);
+            }
+        }
+
+        function handleDateSelect(event) {
+            selectedDate = event.currentTarget.dataset.date;
+            document.querySelectorAll('#calendar-grid .date-available').forEach(el => el.classList.remove('date-selected'));
+            event.currentTarget.classList.add('date-selected');
+            document.getElementById('selected-date-display').textContent = new Date(selectedDate).toLocaleDateString('th-TH', { dateStyle: 'long' });
+            generateTimeSlots();
+            document.getElementById('time-slots-container').classList.remove('hidden');
+            selectedTime = null;
+        }
+
+        function generateTimeSlots() {
+            const timeSlotsGrid = document.getElementById('time-slots-grid');
+            timeSlotsGrid.innerHTML = '';
+            timeSlotsData.forEach(slot => {
+                const slotEl = document.createElement('div');
+                slotEl.className = `p-3 border rounded-lg text-center font-medium ${slot.available ? 'slot-available' : 'slot-full'}`;
+                slotEl.textContent = slot.time;
+                if (slot.available) {
+                    slotEl.dataset.time = slot.time;
+                    slotEl.addEventListener('click', handleTimeSelect);
+                }
+                timeSlotsGrid.appendChild(slotEl);
+            });
+        }
+
+        function handleTimeSelect(event) {
+            selectedTime = event.currentTarget.dataset.time;
+            document.querySelectorAll('#time-slots-grid .slot-available').forEach(el => el.classList.remove('slot-selected'));
+            event.currentTarget.classList.add('slot-selected');
+            document.getElementById('time-slots-error').classList.add('hidden');
+        }
+
+        document.getElementById('next-to-confirm-btn').addEventListener('click', () => {
+            if (selectedDate && selectedTime) {
+                document.getElementById('confirm-case-number').textContent = selectedCase.id;
+                document.getElementById('confirm-worker-name').textContent = selectedCase.workerName;
+                document.getElementById('confirm-date').textContent = new Date(selectedDate).toLocaleDateString('th-TH', { dateStyle: 'full' });
+                document.getElementById('confirm-time').textContent = selectedTime;
+                bookingSection.classList.add('hidden');
+                confirmationSection.classList.remove('hidden');
+                updateStepIndicator(3);
+                document.getElementById('time-slots-error').classList.add('hidden');
+            } else {
+                document.getElementById('time-slots-error').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('back-to-booking-btn').addEventListener('click', () => {
+            confirmationSection.classList.add('hidden');
+            bookingSection.classList.remove('hidden');
+            updateStepIndicator(2);
+        });
+
+        document.getElementById('confirm-booking-btn').addEventListener('click', () => {
+            const bookingRef = `BK-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+            document.getElementById('booking-ref').textContent = bookingRef;
+            document.getElementById('success-date').textContent = new Date(selectedDate).toLocaleDateString('th-TH', { dateStyle: 'full' });
+            document.getElementById('success-time').textContent = selectedTime;
+            confirmationSection.classList.add('hidden');
+            successSection.classList.remove('hidden');
+            stepIndicatorContainer.classList.add('hidden');
+        });
+
+        // --- Gemini Feature Event Listeners ---
+        document.getElementById('generate-checklist-btn').addEventListener('click', () => {
+            const prompt = "โปรดสร้างเช็คลิสต์สั้นๆ ที่เข้าใจง่ายเป็นข้อๆ สำหรับผู้ที่จะไปรับเอกสารใบอนุญาตทำงานของแรงงานต่างด้าว โดยมีหัวข้อสำคัญดังนี้: 1. การไปถึงก่อนเวลานัดหมาย 2. เอกสารประจำตัวของผู้รับ (บัตรประชาชน) 3. รหัสการจองคิวที่ได้รับ 4. ข้อควรปฏิบัติหากมอบอำนาจให้ผู้อื่นไปรับแทน";
+            const loader = document.getElementById('checklist-loader');
+            const resultDiv = document.getElementById('checklist-result');
+            callGeminiAPI(prompt, loader, resultDiv);
+        });
+
+        document.getElementById('generate-email-btn').addEventListener('click', () => {
+            const workerName = selectedCase.workerName;
+            const date = new Date(selectedDate).toLocaleDateString('th-TH', { dateStyle: 'full' });
+            const time = selectedTime;
+            const prompt = `ช่วยร่างอีเมลสั้นๆ เป็นภาษาไทยสำหรับแจ้งข่าวดีให้คุณ '${workerName}' ทราบว่าใบอนุญาตทำงาน (Work Permit) ของเขาดำเนินการเสร็จเรียบร้อยแล้ว และนัดหมายให้เข้ามารับเอกสารที่ออฟฟิศในวันที่ ${date} เวลา ${time} โดยเน้นย้ำให้นำหนังสือเดินทาง (Passport) ตัวจริงมาด้วย`;
+            
+            const loader = document.getElementById('email-loader');
+            const resultContainer = document.getElementById('email-result-container');
+            const resultTextarea = document.getElementById('email-result');
+            resultContainer.classList.remove('hidden');
+            callGeminiAPI(prompt, loader, resultTextarea);
+        });
+
+        document.getElementById('copy-email-btn').addEventListener('click', () => {
+            const emailTextarea = document.getElementById('email-result');
+            emailTextarea.select();
+            document.execCommand('copy');
+            alert('คัดลอกข้อความแล้ว!');
+        });
+
+        function init() {
+            generateCalendar();
+            updateStepIndicator(1);
+        }
+
+        init();
+    </script>
+
+</body>
+</html>
